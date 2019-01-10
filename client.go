@@ -93,7 +93,7 @@ func DialAddrContext(
 // Dial establishes a new QUIC connection to a server using a net.PacketConn.
 // The host parameter is used for SNI.
 func Dial(
-	pconn net.PacketConn,
+	pconn *net.UDPConn,
 	remoteAddr net.Addr,
 	host string,
 	tlsConf *tls.Config,
@@ -106,7 +106,7 @@ func Dial(
 // The host parameter is used for SNI.
 func DialContext(
 	ctx context.Context,
-	pconn net.PacketConn,
+	pconn *net.UDPConn,
 	remoteAddr net.Addr,
 	host string,
 	tlsConf *tls.Config,
@@ -117,7 +117,7 @@ func DialContext(
 
 func dialContext(
 	ctx context.Context,
-	pconn net.PacketConn,
+	pconn *net.UDPConn,
 	remoteAddr net.Addr,
 	host string,
 	tlsConf *tls.Config,

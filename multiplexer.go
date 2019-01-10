@@ -14,7 +14,7 @@ var (
 )
 
 type multiplexer interface {
-	AddConn(net.PacketConn, int) (packetHandlerManager, error)
+	AddConn(*net.UDPConn, int) (packetHandlerManager, error)
 }
 
 type connManager struct {
@@ -27,8 +27,8 @@ type connManager struct {
 type connMultiplexer struct {
 	mutex sync.Mutex
 
-	conns                   map[net.PacketConn]connManager
-	newPacketHandlerManager func(net.PacketConn, int, utils.Logger) packetHandlerManager // so it can be replaced in the tests
+	conns                   map[*net.UDPConn]connManager
+	newPacketHandlerManager func(*net.UDPConn, int, utils.Logger) packetHandlerManager // so it can be replaced in the tests
 
 	logger utils.Logger
 }
@@ -38,7 +38,7 @@ var _ multiplexer = &connMultiplexer{}
 func getMultiplexer() multiplexer {
 	connMuxerOnce.Do(func() {
 		connMuxer = &connMultiplexer{
-			conns:                   make(map[net.PacketConn]connManager),
+			conns:                   make(map[*net.UDPConn]connManager),
 			logger:                  utils.DefaultLogger.WithPrefix("muxer"),
 			newPacketHandlerManager: newPacketHandlerMap,
 		}
@@ -46,7 +46,7 @@ func getMultiplexer() multiplexer {
 	return connMuxer
 }
 
-func (m *connMultiplexer) AddConn(c net.PacketConn, connIDLen int) (packetHandlerManager, error) {
+func (m *connMultiplexer) AddConn(c *net.UDPConn, connIDLen int) (packetHandlerManager, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 

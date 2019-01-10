@@ -14,6 +14,7 @@ import (
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/utils"
 	"github.com/lucas-clemente/quic-go/internal/wire"
+	"golang.org/x/net/ipv4"
 )
 
 // packetHandler handles packets
@@ -68,7 +69,7 @@ type server struct {
 	tlsConf *tls.Config
 	config  *Config
 
-	conn net.PacketConn
+	conn *net.UDPConn
 	// If the server is started with ListenAddr, we create a packet conn.
 	// If it is started with Listen, we take a packet conn as a parameter.
 	createdPacketConn bool
@@ -118,11 +119,11 @@ func ListenAddr(addr string, tlsConf *tls.Config, config *Config) (Listener, err
 
 // Listen listens for QUIC connections on a given net.PacketConn.
 // The tls.Config must not be nil, the quic.Config may be nil.
-func Listen(conn net.PacketConn, tlsConf *tls.Config, config *Config) (Listener, error) {
+func Listen(conn *net.UDPConn, tlsConf *tls.Config, config *Config) (Listener, error) {
 	return listen(conn, tlsConf, config)
 }
 
-func listen(conn net.PacketConn, tlsConf *tls.Config, config *Config) (*server, error) {
+func listen(conn *net.UDPConn, tlsConf *tls.Config, config *Config) (*server, error) {
 	if tlsConf == nil || (len(tlsConf.Certificates) == 0 && tlsConf.GetCertificate == nil) {
 		return nil, errors.New("quic: neither Certificates nor GetCertificate set in tls.Config")
 	}
@@ -366,8 +367,13 @@ func (s *server) handlePacketImpl(p *receivedPacket) error {
 
 	// TODO(#943): send Stateless Reset, if this an IETF QUIC packet
 	if !hdr.VersionFlag && !hdr.Version.UsesIETFHeaderFormat() {
-		_, err := s.conn.WriteTo(wire.WritePublicReset(hdr.DestConnectionID, 0, 0), p.remoteAddr)
+		_, _, err := s.conn.WriteMsgUDP(wire.WritePublicReset(hdr.DestConnectionID, 0, 0), p.cmsg, p.remoteAddr.(*net.UDPAddr))
 		return err
+	}
+
+	cm := ipv4.ControlMessage{}
+	if err := cm.Parse(p.cmsg); err != nil {
+		return fmt.Errorf("failed to read controll message: %s", err)
 	}
 
 	// This is (potentially) a Client Hello.
@@ -385,7 +391,7 @@ func (s *server) handlePacketImpl(p *receivedPacket) error {
 	}
 	s.logger.Infof("Serving new connection: %s, version %s from %v", hdr.DestConnectionID, hdr.Version, p.remoteAddr)
 	sess, err := s.newSession(
-		&conn{pconn: s.conn, currentAddr: p.remoteAddr},
+		&conn{pconn: s.conn, currentAddr: p.remoteAddr, sourceAddr: cm.Dst, iface: cm.IfIndex},
 		s.sessionRunner,
 		hdr.Version,
 		destConnID,
@@ -418,6 +424,6 @@ func (s *server) sendVersionNegotiationPacket(p *receivedPacket) error {
 			return err
 		}
 	}
-	_, err := s.conn.WriteTo(data, p.remoteAddr)
+	_, _, err := s.conn.WriteMsgUDP(data, p.cmsg, p.remoteAddr.(*net.UDPAddr))
 	return err
 }

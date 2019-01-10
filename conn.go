@@ -3,6 +3,8 @@ package quic
 import (
 	"net"
 	"sync"
+
+	"golang.org/x/net/ipv4"
 )
 
 type connection interface {
@@ -19,12 +21,19 @@ type conn struct {
 
 	pconn       net.PacketConn
 	currentAddr net.Addr
+
+	sourceAddr net.IP
+	iface      int
 }
 
 var _ connection = &conn{}
 
 func (c *conn) Write(p []byte) error {
-	_, err := c.pconn.WriteTo(p, c.currentAddr)
+	cm := ipv4.ControlMessage{}
+	cm.Src = c.sourceAddr
+	cm.IfIndex = c.iface
+
+	_, _, err := c.pconn.(*net.UDPConn).WriteMsgUDP(p, cm.Marshal(), c.currentAddr.(*net.UDPAddr))
 	return err
 }
 

@@ -106,7 +106,7 @@ func (s *Server) serveImpl(tlsConfig *tls.Config, conn net.PacketConn) error {
 	if conn == nil {
 		ln, err = quicListenAddr(s.Addr, tlsConfig, s.QuicConfig)
 	} else {
-		ln, err = quicListen(conn, tlsConfig, s.QuicConfig)
+		ln, err = quicListen(conn.(*net.UDPConn), tlsConfig, s.QuicConfig)
 	}
 	if err != nil {
 		s.listenerMutex.Unlock()

@@ -59,6 +59,7 @@ type receivedPacket struct {
 	header     *wire.Header
 	data       []byte
 	rcvTime    time.Time
+	cmsg       []byte
 }
 
 var (

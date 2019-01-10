@@ -19,7 +19,7 @@ import (
 type packetHandlerMap struct {
 	mutex sync.RWMutex
 
-	conn      net.PacketConn
+	conn      *net.UDPConn
 	connIDLen int
 
 	handlers map[string] /* string(ConnectionID)*/ packetHandler
@@ -33,13 +33,13 @@ type packetHandlerMap struct {
 
 var _ packetHandlerManager = &packetHandlerMap{}
 
-func newPacketHandlerMap(conn net.PacketConn, connIDLen int, logger utils.Logger) packetHandlerManager {
+func newPacketHandlerMap(conn *net.UDPConn, connIDLen int, logger utils.Logger) packetHandlerManager {
 	m := &packetHandlerMap{
 		conn:                      conn,
 		connIDLen:                 connIDLen,
 		handlers:                  make(map[string]packetHandler),
 		deleteClosedSessionsAfter: protocol.ClosedSessionDeleteTimeout,
-		logger:                    logger,
+		logger: logger,
 	}
 	go m.listen()
 	return m
@@ -125,20 +125,22 @@ func (h *packetHandlerMap) listen() {
 		data = data[:protocol.MaxReceivePacketSize]
 		// The packet size should not exceed protocol.MaxReceivePacketSize bytes
 		// If it does, we only read a truncated packet, which will then end up undecryptable
-		n, addr, err := h.conn.ReadFrom(data)
+
+		oob := make([]byte, 1024)
+		n, oobn, _, addr, err := h.conn.ReadMsgUDP(data, oob)
 		if err != nil {
 			h.close(err)
 			return
 		}
 		data = data[:n]
 
-		if err := h.handlePacket(addr, data); err != nil {
+		if err := h.handlePacket(addr, data, oob[:oobn]); err != nil {
 			h.logger.Debugf("error handling packet from %s: %s", addr, err)
 		}
 	}
 }
 
-func (h *packetHandlerMap) handlePacket(addr net.Addr, data []byte) error {
+func (h *packetHandlerMap) handlePacket(addr net.Addr, data, oob []byte) error {
 	rcvTime := time.Now()
 
 	r := bytes.NewReader(data)
@@ -193,6 +195,7 @@ func (h *packetHandlerMap) handlePacket(addr net.Addr, data []byte) error {
 		header:     hdr,
 		data:       packetData,
 		rcvTime:    rcvTime,
+		cmsg:       oob,
 	})
 	return nil
 }

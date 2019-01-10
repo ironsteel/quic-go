@@ -29,6 +29,7 @@ type packedPacket struct {
 	raw             []byte
 	frames          []wire.Frame
 	encryptionLevel protocol.EncryptionLevel
+	cms             []byte
 }
 
 func (p *packedPacket) ToAckHandlerPacket() *ackhandler.Packet {
