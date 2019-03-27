@@ -26,7 +26,7 @@ const MaxUndecryptablePackets = 10
 
 // PublicResetTimeout is the time to wait before sending a Public Reset when receiving too many undecryptable packets during the handshake
 // This timeout allows the Go scheduler to switch to the Go rountine that reads the crypto stream and to escalate the crypto
-const PublicResetTimeout = 500 * time.Millisecond
+const PublicResetTimeout = 800 * time.Millisecond
 
 // ReceiveStreamFlowControlWindow is the stream-level flow control window for receiving data
 // This is the value that Google servers are using
