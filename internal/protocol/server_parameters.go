@@ -22,7 +22,7 @@ const InitialCongestionWindow ByteCount = 32 * DefaultTCPMSS
 
 // MaxUndecryptablePackets limits the number of undecryptable packets that a
 // session queues for later until it sends a public reset.
-const MaxUndecryptablePackets = 10
+const MaxUndecryptablePackets = 100
 
 // PublicResetTimeout is the time to wait before sending a Public Reset when receiving too many undecryptable packets during the handshake
 // This timeout allows the Go scheduler to switch to the Go rountine that reads the crypto stream and to escalate the crypto
